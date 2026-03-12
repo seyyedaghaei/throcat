@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net"
 	"os"
 
 	"github.com/spf13/pflag"
@@ -25,6 +27,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, _ = listen, upstream
-	fmt.Printf("listen=%s upstream=%s speed=%s interval=%s\n", *listen, *upstream, *speed, *interval)
+	ln, err := net.Listen("tcp", *listen)
+	if err != nil {
+		log.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	log.Printf("listening on %s", *listen)
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Printf("accept: %v", err)
+			continue
+		}
+		go handleConn(conn, *upstream, *speed, *interval)
+	}
+}
+
+func handleConn(client net.Conn, upstream, speed, interval string) {
+	defer client.Close()
+	// TODO: dial upstream and copy
+	_ = upstream
+	_ = speed
+	_ = interval
 }
