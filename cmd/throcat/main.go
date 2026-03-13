@@ -6,7 +6,10 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 
+	"github.com/seyyedaghaei/throcat/internal/limit"
 	"github.com/spf13/pflag"
 )
 
@@ -28,6 +31,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	speedCfg, err := parseSpeed(*speed, *interval)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "speed: %v\n", err)
+		os.Exit(1)
+	}
+
 	ln, err := net.Listen("tcp", *listen)
 	if err != nil {
 		log.Fatalf("listen: %v", err)
@@ -41,14 +50,16 @@ func main() {
 			log.Printf("accept: %v", err)
 			continue
 		}
-		go handleConn(conn, *upstream, *speed, *interval)
+		go handleConn(conn, *upstream, speedCfg)
 	}
 }
 
-func handleConn(client net.Conn, upstream, speed, interval string) {
+type speedConfig struct {
+	bytesPerSec float64 // 0 = no limit
+}
+
+func handleConn(client net.Conn, upstream string, cfg speedConfig) {
 	defer client.Close()
-	_ = speed
-	_ = interval
 
 	remote, err := net.Dial("tcp", upstream)
 	if err != nil {
@@ -57,10 +68,38 @@ func handleConn(client net.Conn, upstream, speed, interval string) {
 	}
 	defer remote.Close()
 
-	go copyBytes(remote, client)
-	copyBytes(client, remote)
+	if cfg.bytesPerSec <= 0 {
+		go copyBytes(remote, client)
+		copyBytes(client, remote)
+		return
+	}
+	clientLim := limit.Reader(client, cfg.bytesPerSec)
+	remoteLim := limit.Reader(remote, cfg.bytesPerSec)
+	go copyBytesFromReader(remote, clientLim)
+	copyBytesFromReader(client, remoteLim)
+}
+
+func copyBytesFromReader(dst net.Conn, src io.Reader) (int64, error) {
+	return io.Copy(dst, src)
 }
 
 func copyBytes(dst, src net.Conn) (int64, error) {
 	return io.Copy(dst, src)
+}
+
+func parseSpeed(speed, interval string) (speedConfig, error) {
+	speed = strings.TrimSpace(strings.ToLower(speed))
+	if speed == "0" || speed == "no-limit" {
+		return speedConfig{}, nil
+	}
+	// Fixed: single number (KB/s)
+	f, err := strconv.ParseFloat(speed, 64)
+	if err == nil && f > 0 {
+		return speedConfig{bytesPerSec: f * 1024}, nil
+	}
+	// Range: min-max (handled in next step)
+	if strings.Contains(speed, "-") {
+		return speedConfig{}, fmt.Errorf("range speed requires -i/--interval (not yet implemented)")
+	}
+	return speedConfig{}, fmt.Errorf("invalid speed %q", speed)
 }
