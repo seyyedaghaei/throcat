@@ -19,7 +19,7 @@ import (
 func main() {
 	listen := pflag.StringP("listen", "l", "", "Listen address")
 	upstream := pflag.StringP("upstream", "u", "", "Upstream address")
-	speed := pflag.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit")
+	speed := pflag.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit for plain relay")
 	interval := pflag.StringP("interval", "i", "", "When speed is range: interval in seconds to pick new rate (e.g. 5 or 3-7)")
 	pflag.Parse()
 
