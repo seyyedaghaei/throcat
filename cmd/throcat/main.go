@@ -25,6 +25,7 @@ func main() {
 	interval := pflag.StringP("interval", "i", "", "When speed is range: interval in seconds to pick new rate (e.g. 5 or 3-7)")
 	quiet := pflag.BoolP("quiet", "q", false, "Do not log listen address")
 	verbose := pflag.BoolP("verbose", "v", false, "Log each connection open and close")
+	timeout := pflag.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
 	pflag.Parse()
 
 	if *listen == "" || *upstream == "" {
@@ -70,7 +71,7 @@ func main() {
 			log.Printf("accept: %v", err)
 			continue
 		}
-		go handleConn(conn, *upstream, speedCfg, *verbose)
+		go handleConn(conn, *upstream, speedCfg, *verbose, *timeout)
 	}
 }
 
@@ -83,7 +84,7 @@ type speedConfig struct {
 	intervalMax float64 // seconds
 }
 
-func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool) {
+func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool, idleTimeout time.Duration) {
 	defer client.Close()
 	if verbose {
 		log.Printf("connection from %s", client.RemoteAddr())
@@ -96,6 +97,11 @@ func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool)
 		return
 	}
 	defer remote.Close()
+
+	if idleTimeout > 0 {
+		client = &deadlineConn{Conn: client, timeout: idleTimeout}
+		remote = &deadlineConn{Conn: remote, timeout: idleTimeout}
+	}
 
 	if !cfg.isRange && cfg.bytesPerSec <= 0 {
 		go copyBytes(remote, client)
@@ -150,6 +156,22 @@ func copyBytesFromReader(dst net.Conn, src io.Reader) (int64, error) {
 
 func copyBytes(dst, src net.Conn) (int64, error) {
 	return io.Copy(dst, src)
+}
+
+// deadlineConn sets read/write deadlines before each Read/Write for idle timeout.
+type deadlineConn struct {
+	net.Conn
+	timeout time.Duration
+}
+
+func (c *deadlineConn) Read(p []byte) (n int, err error) {
+	c.Conn.SetReadDeadline(time.Now().Add(c.timeout))
+	return c.Conn.Read(p)
+}
+
+func (c *deadlineConn) Write(p []byte) (n int, err error) {
+	c.Conn.SetWriteDeadline(time.Now().Add(c.timeout))
+	return c.Conn.Write(p)
 }
 
 func parseSpeed(speed, interval string) (speedConfig, error) {
