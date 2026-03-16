@@ -1,6 +1,9 @@
 # Binary (at repo root only)
 /throcat
 
+# Release build output
+dist/
+
 # Go
 *.exe
 *.exe~
