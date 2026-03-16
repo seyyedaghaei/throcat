@@ -24,6 +24,9 @@ All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. Ther
 | `--upstream` | `-u` | Upstream address to forward to (e.g. `127.0.0.1:1393`) |
 | `--speed` | `-s` | Speed in KB/s: fixed (e.g. `50`), range (e.g. `30-60`), or `0` / `no-limit` for plain relay |
 | `--interval` | `-i` | Required when speed is a range. Interval in seconds to pick a new rate: one number (e.g. `5`) or range (e.g. `3-7`) |
+| `--quiet` | `-q` | Do not log listen address |
+| `--verbose` | `-v` | Log each connection open and close |
+| `--timeout` | `-t` | Idle connection timeout (e.g. `30s`, `5m`); 0 = no timeout |
 
 ### Examples
 
@@ -50,6 +53,23 @@ Variable rate with random interval between 3 and 7 seconds:
 ```bash
 ./throcat -l 127.0.0.1:10001 -u 127.0.0.1:1393 -s 30-60 -i 3-7
 ```
+
+### Benchmarking (e.g. iperf through throcat)
+
+Run the service (e.g. iperf server) on port 1393. Start throcat with a fixed 50 KB/s limit, then point the iperf client at the proxy:
+
+```bash
+# Terminal 1: iperf server on 1393
+iperf3 -s -p 1393
+
+# Terminal 2: proxy at 50 KB/s
+./throcat -l 127.0.0.1:10001 -u 127.0.0.1:1393 -s 50
+
+# Terminal 3: iperf client through proxy
+iperf3 -c 127.0.0.1 -p 10001
+```
+
+Throughput should be capped at about 50 KB/s.
 
 ## How it works
 
