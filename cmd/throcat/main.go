@@ -23,6 +23,8 @@ func main() {
 	upstream := pflag.StringP("upstream", "u", "", "Upstream address")
 	speed := pflag.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit for plain relay")
 	interval := pflag.StringP("interval", "i", "", "When speed is range: interval in seconds to pick new rate (e.g. 5 or 3-7)")
+	quiet := pflag.BoolP("quiet", "q", false, "Do not log listen address")
+	verbose := pflag.BoolP("verbose", "v", false, "Log each connection open and close")
 	pflag.Parse()
 
 	if *listen == "" || *upstream == "" {
@@ -47,7 +49,9 @@ func main() {
 		log.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
-	log.Printf("listening on %s", *listen)
+	if !*quiet {
+		log.Printf("listening on %s", *listen)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -66,7 +70,7 @@ func main() {
 			log.Printf("accept: %v", err)
 			continue
 		}
-		go handleConn(conn, *upstream, speedCfg)
+		go handleConn(conn, *upstream, speedCfg, *verbose)
 	}
 }
 
@@ -79,8 +83,12 @@ type speedConfig struct {
 	intervalMax float64 // seconds
 }
 
-func handleConn(client net.Conn, upstream string, cfg speedConfig) {
+func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool) {
 	defer client.Close()
+	if verbose {
+		log.Printf("connection from %s", client.RemoteAddr())
+		defer func() { log.Printf("connection closed %s", client.RemoteAddr()) }()
+	}
 
 	remote, err := net.Dial("tcp", upstream)
 	if err != nil {
