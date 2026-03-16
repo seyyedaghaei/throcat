@@ -16,6 +16,8 @@ Or use the Makefile: `make build`, `make test`, `make install`, `make lint`.
 go install github.com/seyyedaghaei/throcat/cmd/throcat@latest
 ```
 
+See [Releases](https://github.com/seyyedaghaei/throcat/releases) for pre-built binaries.
+
 ## Usage
 
 All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. There are no defaults.
@@ -29,6 +31,10 @@ All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. Ther
 | `--quiet` | `-q` | Do not log listen address |
 | `--verbose` | `-v` | Log each connection open and close |
 | `--timeout` | `-t` | Idle connection timeout (e.g. `30s`, `5m`); 0 = no timeout |
+| `--version` | `-V` | Print version and exit |
+| `--json` | `-j` | Log in JSON (one object per line) for scripting/monitoring |
+
+With `-j`/`--json`, each log line is a JSON object with `time` (RFC3339), `event`, and event-specific fields (`addr`, `remote`, `direction`, `upstream`, `error`), for easy parsing by scripts or log aggregators.
 
 ### Examples
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -26,6 +27,7 @@ func main() {
 	quiet := pflag.BoolP("quiet", "q", false, "Do not log listen address")
 	verbose := pflag.BoolP("verbose", "v", false, "Log each connection open and close")
 	timeout := pflag.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
+	jsonLog := pflag.BoolP("json", "j", false, "Log in JSON format for scripting/monitoring")
 	pflag.Parse()
 
 	if *listen == "" || *upstream == "" {
@@ -51,7 +53,7 @@ func main() {
 	}
 	defer func() { _ = ln.Close() }()
 	if !*quiet {
-		log.Printf("listening on %s", *listen)
+		logLine(*jsonLog, map[string]interface{}{"event": "listen", "addr": *listen})
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -68,10 +70,35 @@ func main() {
 			if ctx.Err() != nil {
 				return
 			}
-			log.Printf("accept: %v", err)
+			logLine(*jsonLog, map[string]interface{}{"event": "accept_error", "error": err.Error()})
 			continue
 		}
-		go handleConn(conn, *upstream, speedCfg, *verbose, *timeout)
+		go handleConn(conn, *upstream, speedCfg, *verbose, *timeout, *jsonLog)
+	}
+}
+
+func logLine(jsonLog bool, m map[string]interface{}) {
+	m["time"] = time.Now().Format(time.RFC3339)
+	if jsonLog {
+		_ = json.NewEncoder(os.Stderr).Encode(m)
+		return
+	}
+	event, _ := m["event"].(string)
+	switch event {
+	case "listen":
+		log.Printf("listening on %s", m["addr"])
+	case "connection":
+		if m["direction"] == "open" {
+			log.Printf("connection from %s", m["remote"])
+		} else {
+			log.Printf("connection closed %s", m["remote"])
+		}
+	case "accept_error":
+		log.Printf("accept: %v", m["error"])
+	case "dial_error":
+		log.Printf("dial %s: %v", m["upstream"], m["error"])
+	default:
+		log.Printf("%v", m)
 	}
 }
 
@@ -84,16 +111,17 @@ type speedConfig struct {
 	intervalMax float64 // seconds
 }
 
-func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool, idleTimeout time.Duration) {
+func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool, idleTimeout time.Duration, jsonLog bool) {
 	defer func() { _ = client.Close() }()
+	remoteAddr := client.RemoteAddr().String()
 	if verbose {
-		log.Printf("connection from %s", client.RemoteAddr())
-		defer func() { log.Printf("connection closed %s", client.RemoteAddr()) }()
+		logLine(jsonLog, map[string]interface{}{"event": "connection", "remote": remoteAddr, "direction": "open"})
+		defer func() { logLine(jsonLog, map[string]interface{}{"event": "connection", "remote": remoteAddr, "direction": "close"}) }()
 	}
 
 	remote, err := net.Dial("tcp", upstream)
 	if err != nil {
-		log.Printf("dial %s: %v", upstream, err)
+		logLine(jsonLog, map[string]interface{}{"event": "dial_error", "upstream": upstream, "error": err.Error()})
 		return
 	}
 	defer func() { _ = remote.Close() }()
