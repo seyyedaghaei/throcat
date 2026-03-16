@@ -8,8 +8,10 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/seyyedaghaei/throcat/internal/limit"
@@ -47,9 +49,20 @@ func main() {
 	defer ln.Close()
 	log.Printf("listening on %s", *listen)
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+		ln.Close()
+	}()
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			log.Printf("accept: %v", err)
 			continue
 		}
