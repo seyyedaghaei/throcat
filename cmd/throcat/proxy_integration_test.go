@@ -21,7 +21,7 @@ func TestProxy_relay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	echoAddr := ln.Addr().String()
 	go func() {
 		for {
@@ -30,7 +30,7 @@ func TestProxy_relay(t *testing.T) {
 				return
 			}
 			go func(c net.Conn) {
-				defer c.Close()
+				defer func() { _ = c.Close() }()
 				buf := make([]byte, 1024)
 				for {
 					n, err := c.Read(buf)
@@ -51,14 +51,14 @@ func TestProxy_relay(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 	time.Sleep(200 * time.Millisecond)
 
 	conn, err := net.Dial("tcp", proxyListen)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	msg := "hello\n"
 	if _, err := conn.Write([]byte(msg)); err != nil {
 		t.Fatal(err)

@@ -49,7 +49,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("listen: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	if !*quiet {
 		log.Printf("listening on %s", *listen)
 	}
@@ -59,7 +59,7 @@ func main() {
 
 	go func() {
 		<-ctx.Done()
-		ln.Close()
+		_ = ln.Close()
 	}()
 
 	for {
@@ -85,7 +85,7 @@ type speedConfig struct {
 }
 
 func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool, idleTimeout time.Duration) {
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	if verbose {
 		log.Printf("connection from %s", client.RemoteAddr())
 		defer func() { log.Printf("connection closed %s", client.RemoteAddr()) }()
@@ -96,7 +96,7 @@ func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool,
 		log.Printf("dial %s: %v", upstream, err)
 		return
 	}
-	defer remote.Close()
+	defer func() { _ = remote.Close() }()
 
 	if idleTimeout > 0 {
 		client = &deadlineConn{Conn: client, timeout: idleTimeout}
@@ -104,8 +104,8 @@ func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool,
 	}
 
 	if !cfg.isRange && cfg.bytesPerSec <= 0 {
-		go copyBytes(remote, client)
-		copyBytes(client, remote)
+		go func() { _, _ = copyBytes(remote, client) }()
+		_, _ = copyBytes(client, remote)
 		return
 	}
 	if cfg.isRange {
@@ -114,8 +114,8 @@ func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool,
 	}
 	clientLim := limit.Reader(client, cfg.bytesPerSec)
 	remoteLim := limit.Reader(remote, cfg.bytesPerSec)
-	go copyBytesFromReader(remote, clientLim)
-	copyBytesFromReader(client, remoteLim)
+	go func() { _, _ = copyBytesFromReader(remote, clientLim) }()
+	_, _ = copyBytesFromReader(client, remoteLim)
 }
 
 func handleConnRateLimitedRange(client, remote net.Conn, cfg speedConfig) {
@@ -146,8 +146,8 @@ func handleConnRateLimitedRange(client, remote net.Conn, cfg speedConfig) {
 		}
 	}()
 
-	go copyBytesFromReader(remote, clientLim)
-	copyBytesFromReader(client, remoteLim)
+	go func() { _, _ = copyBytesFromReader(remote, clientLim) }()
+	_, _ = copyBytesFromReader(client, remoteLim)
 }
 
 func copyBytesFromReader(dst net.Conn, src io.Reader) (int64, error) {
@@ -165,12 +165,12 @@ type deadlineConn struct {
 }
 
 func (c *deadlineConn) Read(p []byte) (n int, err error) {
-	c.Conn.SetReadDeadline(time.Now().Add(c.timeout))
+	_ = c.SetReadDeadline(time.Now().Add(c.timeout))
 	return c.Conn.Read(p)
 }
 
 func (c *deadlineConn) Write(p []byte) (n int, err error) {
-	c.Conn.SetWriteDeadline(time.Now().Add(c.timeout))
+	_ = c.SetWriteDeadline(time.Now().Add(c.timeout))
 	return c.Conn.Write(p)
 }
 
