@@ -8,7 +8,9 @@
 go build -o throcat ./cmd/throcat
 ```
 
-## Install:
+Or use the Makefile: `make build`, `make test`, `make install`, `make lint`.
+
+## Install
 
 ```bash
 go install github.com/seyyedaghaei/throcat/cmd/throcat@latest
@@ -87,6 +89,14 @@ Throughput should be capped at about 50 KB/s.
 ```bash
 go test ./...
 ```
+
+## Man page
+
+```bash
+man man/throcat.1
+```
+
+Or install to your man path (e.g. `cp man/throcat.1 /usr/local/share/man/man1/`).
 
 ## License
 
