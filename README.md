@@ -8,6 +8,12 @@
 go build -o throcat ./cmd/throcat
 ```
 
+## Install:
+
+```bash
+go install github.com/seyyedaghaei/throcat/cmd/throcat@latest
+```
+
 ## Usage
 
 All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. There are no defaults.
@@ -52,6 +58,16 @@ Variable rate with random interval between 3 and 7 seconds:
 - For a fixed speed, the same limit (KB/s) is applied in both directions.
 - For a range speed, a new rate is chosen at random in the given interval (in seconds). The interval itself can be fixed (e.g. `-i 5`) or a range (e.g. `-i 3-7`).
 
+## Caveats
+
+- Rate limiting is **per connection**. Multiple clients each get the configured limit; total throughput is (limit × number of connections).
+
+## Testing
+
+```bash
+go test ./...
+```
+
 ## License
 
-ISC (or your choice).
+MIT. See [LICENSE](LICENSE).
