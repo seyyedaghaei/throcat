@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -46,8 +47,20 @@ func main() {
 
 func handleConn(client net.Conn, upstream, speed, interval string) {
 	defer client.Close()
-	// TODO: dial upstream and copy
-	_ = upstream
 	_ = speed
 	_ = interval
+
+	remote, err := net.Dial("tcp", upstream)
+	if err != nil {
+		log.Printf("dial %s: %v", upstream, err)
+		return
+	}
+	defer remote.Close()
+
+	go copyBytes(remote, client)
+	copyBytes(client, remote)
+}
+
+func copyBytes(dst, src net.Conn) (int64, error) {
+	return io.Copy(dst, src)
 }
