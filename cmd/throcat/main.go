@@ -22,7 +22,7 @@ func main() {
 	listen := pflag.StringP("listen", "l", "", "Listen address")
 	upstream := pflag.StringP("upstream", "u", "", "Upstream address")
 	speed := pflag.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit for plain relay")
-	interval := pflag.StringP("interval", "i", "", "When speed is range: interval in seconds to pick new rate (e.g. 5 or 3-7)")
+	interval := pflag.StringP("interval", "i", "", "When speed is range: seconds between rate changes (e.g. 5 or 3-7); omit to change rate often so speed varies constantly")
 	quiet := pflag.BoolP("quiet", "q", false, "Do not log listen address")
 	verbose := pflag.BoolP("verbose", "v", false, "Log each connection open and close")
 	timeout := pflag.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
@@ -195,12 +195,13 @@ func parseSpeed(speed, interval string) (speedConfig, error) {
 		if err1 != nil || err2 != nil || minKB <= 0 || maxKB < minKB {
 			return speedConfig{}, fmt.Errorf("invalid speed range %q", speed)
 		}
-		if interval == "" {
-			return speedConfig{}, fmt.Errorf("range speed requires -i/--interval")
-		}
-		intervalMin, intervalMax, err := parseInterval(interval)
-		if err != nil {
-			return speedConfig{}, fmt.Errorf("interval: %w", err)
+		intervalMin, intervalMax := 0.1, 0.3 // omit -i: change rate every 0.1–0.3s so speed varies constantly
+		if interval != "" {
+			var err error
+			intervalMin, intervalMax, err = parseInterval(interval)
+			if err != nil {
+				return speedConfig{}, fmt.Errorf("interval: %w", err)
+			}
 		}
 		return speedConfig{
 			isRange:     true,

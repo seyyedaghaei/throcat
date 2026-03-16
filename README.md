@@ -25,7 +25,7 @@ All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. Ther
 | `--listen` | `-l` | Listen address (e.g. `127.0.0.1:10001`) |
 | `--upstream` | `-u` | Upstream address to forward to (e.g. `127.0.0.1:1393`) |
 | `--speed` | `-s` | Speed in KB/s: fixed (e.g. `50`), range (e.g. `30-60`), or `0` / `no-limit` for plain relay |
-| `--interval` | `-i` | Required when speed is a range. Interval in seconds to pick a new rate: one number (e.g. `5`) or range (e.g. `3-7`) |
+| `--interval` | `-i` | When speed is a range: seconds between rate changes (e.g. `5` or `3-7`). Omit to change rate often so speed varies constantly. |
 | `--quiet` | `-q` | Do not log listen address |
 | `--verbose` | `-v` | Log each connection open and close |
 | `--timeout` | `-t` | Idle connection timeout (e.g. `30s`, `5m`); 0 = no timeout |
@@ -78,7 +78,7 @@ Throughput should be capped at about 50 KB/s.
 - Listens for TCP on `-l`, accepts connections, and dials `-u` for each.
 - Data is copied both ways. When `-s` is not `0`/`no-limit`, both directions are rate-limited.
 - For a fixed speed, the same limit (KB/s) is applied in both directions.
-- For a range speed, a new rate is chosen at random in the given interval (in seconds). The interval itself can be fixed (e.g. `-i 5`) or a range (e.g. `-i 3-7`).
+- For a range speed, a new rate is chosen at random in the range. With `-i`, that happens every N seconds (fixed or range). Without `-i`, the rate is updated very often (every ~0.1–0.3s) so the effective speed keeps varying.
 
 ## Caveats
 

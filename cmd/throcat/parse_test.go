@@ -17,7 +17,7 @@ func TestParseSpeed(t *testing.T) {
 		{"NO-LIMIT", "", true, false, false},
 		{"50", "", false, false, false},
 		{" 50 ", "", false, false, false},
-		{"30-60", "", false, false, true}, // needs interval
+		{"30-60", "", false, true, false}, // range without -i: change rate often, speed varies constantly
 		{"30-60", "5", false, true, false},
 		{"30-60", "3-7", false, true, false},
 		{"invalid", "", false, false, true},
