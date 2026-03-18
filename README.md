@@ -22,6 +22,8 @@ See [Releases](https://github.com/seyyedaghaei/throcat/releases) for pre-built b
 
 All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. There are no defaults.
 
+You can run the relay explicitly as `throcat relay ...`. If no subcommand is provided, `relay` is assumed.
+
 | Flag | Short | Description |
 |------|--------|-------------|
 | `--listen` | `-l` | Listen address (e.g. `127.0.0.1:10001`) |
