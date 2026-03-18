@@ -17,29 +17,7 @@ import (
 )
 
 func main() {
-	args := os.Args[1:]
-	cmd := "relay"
-	if len(args) > 0 {
-		switch args[0] {
-		case "relay", "server", "client":
-			cmd = args[0]
-			args = args[1:]
-		}
-	}
-
-	switch cmd {
-	case "relay":
-		runRelay(args)
-	case "server":
-		fmt.Fprintln(os.Stderr, "server: not implemented")
-		os.Exit(2)
-	case "client":
-		fmt.Fprintln(os.Stderr, "client: not implemented")
-		os.Exit(2)
-	default:
-		fmt.Fprintln(os.Stderr, "unknown command")
-		os.Exit(2)
-	}
+	runRelay(os.Args[1:])
 }
 
 func runRelay(args []string) {
