@@ -2,42 +2,71 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"math/rand"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/seyyedaghaei/throcat/internal/limit"
+	"github.com/seyyedaghaei/throcat/internal/logx"
+	"github.com/seyyedaghaei/throcat/internal/proxy"
 	"github.com/spf13/pflag"
 )
 
 func main() {
-	listen := pflag.StringP("listen", "l", "", "Listen address")
-	upstream := pflag.StringP("upstream", "u", "", "Upstream address")
-	speed := pflag.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit for plain relay")
-	interval := pflag.StringP("interval", "i", "", "When speed is range: seconds between rate changes (e.g. 5 or 3-7); omit to change rate often so speed varies constantly")
-	quiet := pflag.BoolP("quiet", "q", false, "Do not log listen address")
-	verbose := pflag.BoolP("verbose", "v", false, "Log each connection open and close")
-	timeout := pflag.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
-	jsonLog := pflag.BoolP("json", "j", false, "Log in JSON format for scripting/monitoring")
-	pflag.Parse()
+	args := os.Args[1:]
+	cmd := "relay"
+	if len(args) > 0 {
+		switch args[0] {
+		case "relay", "server", "client":
+			cmd = args[0]
+			args = args[1:]
+		}
+	}
+
+	switch cmd {
+	case "relay":
+		runRelay(args)
+	case "server":
+		fmt.Fprintln(os.Stderr, "server: not implemented")
+		os.Exit(2)
+	case "client":
+		fmt.Fprintln(os.Stderr, "client: not implemented")
+		os.Exit(2)
+	default:
+		fmt.Fprintln(os.Stderr, "unknown command")
+		os.Exit(2)
+	}
+}
+
+func runRelay(args []string) {
+	fs := pflag.NewFlagSet("relay", pflag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	listen := fs.StringP("listen", "l", "", "Listen address")
+	upstream := fs.StringP("upstream", "u", "", "Upstream address")
+	speed := fs.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit for plain relay")
+	interval := fs.StringP("interval", "i", "", "When speed is range: seconds between rate changes (e.g. 5 or 3-7); omit to change rate often so speed varies constantly")
+	quiet := fs.BoolP("quiet", "q", false, "Do not log listen address")
+	verbose := fs.BoolP("verbose", "v", false, "Log each connection open and close")
+	timeout := fs.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
+	jsonLog := fs.BoolP("json", "j", false, "Log in JSON format for scripting/monitoring")
+
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
 
 	if *listen == "" || *upstream == "" {
 		fmt.Fprintln(os.Stderr, "must set -l/--listen and -u/--upstream")
-		pflag.Usage()
+		fs.Usage()
 		os.Exit(1)
 	}
 	if *speed == "" {
 		fmt.Fprintln(os.Stderr, "must set -s/--speed")
-		pflag.Usage()
+		fs.Usage()
 		os.Exit(1)
 	}
 
@@ -51,54 +80,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("listen: %v", err)
 	}
-	defer func() { _ = ln.Close() }()
+
+	logger := logx.Logger{JSON: *jsonLog}
 	if !*quiet {
-		logLine(*jsonLog, map[string]interface{}{"event": "listen", "addr": *listen})
+		logger.Event(map[string]interface{}{"event": "listen", "addr": *listen})
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	go func() {
-		<-ctx.Done()
-		_ = ln.Close()
-	}()
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			logLine(*jsonLog, map[string]interface{}{"event": "accept_error", "error": err.Error()})
-			continue
-		}
-		go handleConn(conn, *upstream, speedCfg, *verbose, *timeout, *jsonLog)
+	cfg := proxy.RelayConfig{
+		Upstream:    *upstream,
+		SpeedBytes:  speedCfg.bytesPerSec,
+		Verbose:     *verbose,
+		IdleTimeout: *timeout,
+		Log:         logger,
 	}
-}
-
-func logLine(jsonLog bool, m map[string]interface{}) {
-	m["time"] = time.Now().Format(time.RFC3339)
-	if jsonLog {
-		_ = json.NewEncoder(os.Stderr).Encode(m)
-		return
-	}
-	event, _ := m["event"].(string)
-	switch event {
-	case "listen":
-		log.Printf("listening on %s", m["addr"])
-	case "connection":
-		if m["direction"] == "open" {
-			log.Printf("connection from %s", m["remote"])
-		} else {
-			log.Printf("connection closed %s", m["remote"])
-		}
-	case "accept_error":
-		log.Printf("accept: %v", m["error"])
-	case "dial_error":
-		log.Printf("dial %s: %v", m["upstream"], m["error"])
-	default:
-		log.Printf("%v", m)
+	if err := proxy.ServeRelay(ctx, ln, cfg); err != nil {
+		log.Fatalf("relay: %v", err)
 	}
 }
 
@@ -109,97 +108,6 @@ type speedConfig struct {
 	maxKB       float64
 	intervalMin float64 // seconds
 	intervalMax float64 // seconds
-}
-
-func handleConn(client net.Conn, upstream string, cfg speedConfig, verbose bool, idleTimeout time.Duration, jsonLog bool) {
-	defer func() { _ = client.Close() }()
-	remoteAddr := client.RemoteAddr().String()
-	if verbose {
-		logLine(jsonLog, map[string]interface{}{"event": "connection", "remote": remoteAddr, "direction": "open"})
-		defer func() { logLine(jsonLog, map[string]interface{}{"event": "connection", "remote": remoteAddr, "direction": "close"}) }()
-	}
-
-	remote, err := net.Dial("tcp", upstream)
-	if err != nil {
-		logLine(jsonLog, map[string]interface{}{"event": "dial_error", "upstream": upstream, "error": err.Error()})
-		return
-	}
-	defer func() { _ = remote.Close() }()
-
-	if idleTimeout > 0 {
-		client = &deadlineConn{Conn: client, timeout: idleTimeout}
-		remote = &deadlineConn{Conn: remote, timeout: idleTimeout}
-	}
-
-	if !cfg.isRange && cfg.bytesPerSec <= 0 {
-		go func() { _, _ = copyBytes(remote, client) }()
-		_, _ = copyBytes(client, remote)
-		return
-	}
-	if cfg.isRange {
-		handleConnRateLimitedRange(client, remote, cfg)
-		return
-	}
-	clientLim := limit.Reader(client, cfg.bytesPerSec)
-	remoteLim := limit.Reader(remote, cfg.bytesPerSec)
-	go func() { _, _ = copyBytesFromReader(remote, clientLim) }()
-	_, _ = copyBytesFromReader(client, remoteLim)
-}
-
-func handleConnRateLimitedRange(client, remote net.Conn, cfg speedConfig) {
-	initialKB := (cfg.minKB + cfg.maxKB) / 2
-	initialBps := initialKB * 1024
-	lim1 := limit.NewVariableLimiter(initialBps)
-	lim2 := limit.NewVariableLimiter(initialBps)
-	clientLim := lim1.Reader(client)
-	remoteLim := lim2.Reader(remote)
-
-	ctx, stop := context.WithCancel(context.Background())
-	defer stop()
-	go func() {
-		for {
-			intervalSec := cfg.intervalMin
-			if cfg.intervalMax > cfg.intervalMin {
-				intervalSec = cfg.intervalMin + rand.Float64()*(cfg.intervalMax-cfg.intervalMin)
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(time.Duration(intervalSec * float64(time.Second))):
-				kb := cfg.minKB + rand.Float64()*(cfg.maxKB-cfg.minKB)
-				bps := kb * 1024
-				lim1.SetLimit(bps)
-				lim2.SetLimit(bps)
-			}
-		}
-	}()
-
-	go func() { _, _ = copyBytesFromReader(remote, clientLim) }()
-	_, _ = copyBytesFromReader(client, remoteLim)
-}
-
-func copyBytesFromReader(dst net.Conn, src io.Reader) (int64, error) {
-	return io.Copy(dst, src)
-}
-
-func copyBytes(dst, src net.Conn) (int64, error) {
-	return io.Copy(dst, src)
-}
-
-// deadlineConn sets read/write deadlines before each Read/Write for idle timeout.
-type deadlineConn struct {
-	net.Conn
-	timeout time.Duration
-}
-
-func (c *deadlineConn) Read(p []byte) (n int, err error) {
-	_ = c.SetReadDeadline(time.Now().Add(c.timeout))
-	return c.Conn.Read(p)
-}
-
-func (c *deadlineConn) Write(p []byte) (n int, err error) {
-	_ = c.SetWriteDeadline(time.Now().Add(c.timeout))
-	return c.Conn.Write(p)
 }
 
 func parseSpeed(speed, interval string) (speedConfig, error) {
