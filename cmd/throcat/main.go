@@ -17,11 +17,7 @@ import (
 )
 
 func main() {
-	args := os.Args[1:]
-	if len(args) > 0 && args[0] == "relay" {
-		args = args[1:]
-	}
-	runRelay(args)
+	runRelay(os.Args[1:])
 }
 
 func runRelay(args []string) {
