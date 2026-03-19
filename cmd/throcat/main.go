@@ -32,6 +32,7 @@ func runRelay(args []string) {
 	quiet := fs.BoolP("quiet", "q", false, "Do not log listen address")
 	verbose := fs.BoolP("verbose", "v", false, "Log each connection open and close")
 	timeout := fs.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
+	loss := fs.Float64P("loss", "p", 0, "Loss percentage of forwarded bytes (0-100); 0 disables")
 	latency := fs.DurationP("latency", "L", 0, "Base one-way latency (e.g. 100ms); 0 disables")
 	jitter := fs.DurationP("jitter", "J", 0, "Additional random latency up to (e.g. 50ms); 0 disables")
 	jsonLog := fs.BoolP("json", "j", false, "Log in JSON format for scripting/monitoring")
@@ -47,6 +48,11 @@ func runRelay(args []string) {
 	}
 	if *speed == "" {
 		fmt.Fprintln(os.Stderr, "must set -s/--speed")
+		fs.Usage()
+		os.Exit(1)
+	}
+	if *loss < 0 || *loss > 100 {
+		fmt.Fprintln(os.Stderr, "loss: must be between 0 and 100")
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -75,6 +81,7 @@ func runRelay(args []string) {
 		SpeedBytes:  speedCfg.bytesPerSec,
 		Verbose:     *verbose,
 		IdleTimeout: *timeout,
+		LossPercent: *loss,
 		Latency: netem.Latency{
 			Enabled: *latency > 0 || *jitter > 0,
 			Base:    *latency,
