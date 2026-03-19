@@ -8,6 +8,7 @@ import (
 
 	"github.com/seyyedaghaei/throcat/internal/limit"
 	"github.com/seyyedaghaei/throcat/internal/logx"
+	"github.com/seyyedaghaei/throcat/internal/netem"
 )
 
 type RelayConfig struct {
@@ -15,6 +16,7 @@ type RelayConfig struct {
 	SpeedBytes  float64
 	Verbose     bool
 	IdleTimeout time.Duration
+	Latency     netem.Latency
 	Log         logx.Logger
 }
 
@@ -61,6 +63,11 @@ func handleRelayConn(client net.Conn, cfg RelayConfig) {
 		client = &deadlineConn{Conn: client, timeout: cfg.IdleTimeout}
 		remote = &deadlineConn{Conn: remote, timeout: cfg.IdleTimeout}
 	}
+	if cfg.Latency.Enabled {
+		delay := netem.Delay{Base: cfg.Latency.Base, Jitter: cfg.Latency.Jitter}
+		client = netem.WrapWriteDelay(client, delay)
+		remote = netem.WrapWriteDelay(remote, delay)
+	}
 
 	if cfg.SpeedBytes <= 0 {
 		go func() { _, _ = io.Copy(remote, client) }()
@@ -88,4 +95,3 @@ func (c *deadlineConn) Write(p []byte) (n int, err error) {
 	_ = c.SetWriteDeadline(time.Now().Add(c.timeout))
 	return c.Conn.Write(p)
 }
-
