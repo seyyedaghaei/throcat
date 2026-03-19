@@ -111,14 +111,6 @@ Throughput should be capped at about 50 KB/s.
 go test ./...
 ```
 
-## Man page
-
-```bash
-man man/throcat.1
-```
-
-Or install to your man path (e.g. `cp man/throcat.1 /usr/local/share/man/man1/`).
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
