@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/seyyedaghaei/throcat/internal/logx"
+	"github.com/seyyedaghaei/throcat/internal/netem"
 	"github.com/seyyedaghaei/throcat/internal/proxy"
 	"github.com/spf13/pflag"
 )
@@ -31,6 +32,8 @@ func runRelay(args []string) {
 	quiet := fs.BoolP("quiet", "q", false, "Do not log listen address")
 	verbose := fs.BoolP("verbose", "v", false, "Log each connection open and close")
 	timeout := fs.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
+	latency := fs.DurationP("latency", "L", 0, "Base one-way latency (e.g. 100ms); 0 disables")
+	jitter := fs.DurationP("jitter", "J", 0, "Additional random latency up to (e.g. 50ms); 0 disables")
 	jsonLog := fs.BoolP("json", "j", false, "Log in JSON format for scripting/monitoring")
 
 	if err := fs.Parse(args); err != nil {
@@ -72,7 +75,12 @@ func runRelay(args []string) {
 		SpeedBytes:  speedCfg.bytesPerSec,
 		Verbose:     *verbose,
 		IdleTimeout: *timeout,
-		Log:         logger,
+		Latency: netem.Latency{
+			Enabled: *latency > 0 || *jitter > 0,
+			Base:    *latency,
+			Jitter:  *jitter,
+		},
+		Log: logger,
 	}
 	if err := proxy.ServeRelay(ctx, ln, cfg); err != nil {
 		log.Fatalf("relay: %v", err)
