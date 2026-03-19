@@ -31,6 +31,8 @@ All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. Ther
 | `--quiet` | `-q` | Do not log listen address |
 | `--verbose` | `-v` | Log each connection open and close |
 | `--timeout` | `-t` | Idle connection timeout (e.g. `30s`, `5m`); 0 = no timeout |
+| `--latency` | `-L` | Base one-way latency (e.g. `100ms`); 0 disables |
+| `--jitter` | `-J` | Additional random latency up to (e.g. `50ms`); 0 disables |
 | `--version` | `-V` | Print version and exit |
 | `--json` | `-j` | Log in JSON (one object per line) for scripting/monitoring |
 
@@ -60,6 +62,12 @@ Variable rate with random interval between 3 and 7 seconds:
 
 ```bash
 ./throcat -l 127.0.0.1:10001 -u 127.0.0.1:1393 -s 30-60 -i 3-7
+```
+
+Fixed rate with latency and jitter:
+
+```bash
+./throcat -l 127.0.0.1:10001 -u 127.0.0.1:1393 -s 50 -L 100ms -J 50ms
 ```
 
 ### Benchmarking (e.g. iperf through throcat)
