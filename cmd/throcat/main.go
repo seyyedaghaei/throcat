@@ -13,6 +13,7 @@ import (
 
 	"github.com/seyyedaghaei/throcat/internal/logx"
 	"github.com/seyyedaghaei/throcat/internal/netem"
+	"github.com/seyyedaghaei/throcat/internal/profiles"
 	"github.com/seyyedaghaei/throcat/internal/proxy"
 	"github.com/spf13/pflag"
 )
@@ -29,6 +30,7 @@ func runRelay(args []string) {
 	upstream := fs.StringP("upstream", "u", "", "Upstream address")
 	speed := fs.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit for plain relay")
 	interval := fs.StringP("interval", "i", "", "When speed is range: seconds between rate changes (e.g. 5 or 3-7); omit to change rate often so speed varies constantly")
+	profilePath := fs.StringP("profile", "", "", "Path to network profile YAML (CLI flags override profile values)")
 	quiet := fs.BoolP("quiet", "q", false, "Do not log listen address")
 	verbose := fs.BoolP("verbose", "v", false, "Log each connection open and close")
 	timeout := fs.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
@@ -41,18 +43,53 @@ func runRelay(args []string) {
 		os.Exit(2)
 	}
 
+	if *profilePath != "" {
+		p, err := profiles.Load(*profilePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "profile: %v\n", err)
+			os.Exit(1)
+		}
+
+		if !fs.Lookup("listen").Changed && p.Listen != "" {
+			*listen = p.Listen
+		}
+		if !fs.Lookup("upstream").Changed && p.Upstream != "" {
+			*upstream = p.Upstream
+		}
+		if !fs.Lookup("speed").Changed && p.Speed != nil {
+			*speed = *p.Speed
+		}
+		if !fs.Lookup("interval").Changed && p.Interval != nil {
+			*interval = *p.Interval
+		}
+		if !fs.Lookup("latency").Changed && p.Latency != nil {
+			*latency = *p.Latency
+		}
+		if !fs.Lookup("jitter").Changed && p.Jitter != nil {
+			*jitter = *p.Jitter
+		}
+		if !fs.Lookup("loss").Changed && p.Loss != nil {
+			*loss = *p.Loss
+		}
+	}
+
 	if *listen == "" || *upstream == "" {
-		fmt.Fprintln(os.Stderr, "must set -l/--listen and -u/--upstream")
+		fmt.Fprintln(os.Stderr, "must set -l/--listen and -u/--upstream (or provide them in --profile)")
 		fs.Usage()
 		os.Exit(1)
 	}
 	if *speed == "" {
-		fmt.Fprintln(os.Stderr, "must set -s/--speed")
+		fmt.Fprintln(os.Stderr, "must set -s/--speed (or provide it in --profile)")
 		fs.Usage()
 		os.Exit(1)
 	}
 	if *loss < 0 || *loss > 100 {
 		fmt.Fprintln(os.Stderr, "loss: must be between 0 and 100")
+		fs.Usage()
+		os.Exit(1)
+	}
+	if *latency < 0 || *jitter < 0 {
+		fmt.Fprintln(os.Stderr, "latency/jitter must be >= 0")
 		fs.Usage()
 		os.Exit(1)
 	}
