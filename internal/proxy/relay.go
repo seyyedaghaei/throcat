@@ -65,8 +65,8 @@ func handleRelayConn(client net.Conn, cfg RelayConfig) {
 		remote = &deadlineConn{Conn: remote, timeout: cfg.IdleTimeout}
 	}
 	if cfg.DropPercent > 0 {
-		client = netem.WrapWriteLoss(client, netem.DropLoss{Percent: cfg.DropPercent})
-		remote = netem.WrapWriteLoss(remote, netem.DropLoss{Percent: cfg.DropPercent})
+		client = netem.WrapWriteDrop(client, netem.DropLoss{Percent: cfg.DropPercent})
+		remote = netem.WrapWriteDrop(remote, netem.DropLoss{Percent: cfg.DropPercent})
 	}
 	if cfg.Latency.Enabled {
 		delay := netem.Delay{Base: cfg.Latency.Base, Jitter: cfg.Latency.Jitter}

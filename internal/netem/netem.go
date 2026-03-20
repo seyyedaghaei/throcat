@@ -5,7 +5,7 @@ import "time"
 type Config struct {
 	Bandwidth Bandwidth
 	Latency   Latency
-	Loss      Loss
+	Drop      Drop
 }
 
 type Bandwidth struct {
@@ -19,7 +19,7 @@ type Latency struct {
 	Jitter  time.Duration
 }
 
-type Loss struct {
+type Drop struct {
 	Enabled bool
 	Percent Range
 }

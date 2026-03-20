@@ -26,20 +26,20 @@ func (l DropLoss) shouldDrop() bool {
 	return r.Float64() < (l.Percent / 100.0)
 }
 
-func WrapWriteLoss(c net.Conn, d DropLoss) net.Conn {
+func WrapWriteDrop(c net.Conn, d DropLoss) net.Conn {
 	if d.Percent <= 0 {
 		return c
 	}
-	return &lossConn{Conn: c, loss: d}
+	return &dropConn{Conn: c, drop: d}
 }
 
-type lossConn struct {
+type dropConn struct {
 	net.Conn
-	loss DropLoss
+	drop DropLoss
 }
 
-func (c *lossConn) Write(p []byte) (n int, err error) {
-	if c.loss.shouldDrop() {
+func (c *dropConn) Write(p []byte) (n int, err error) {
+	if c.drop.shouldDrop() {
 		return len(p), nil
 	}
 	return c.Conn.Write(p)

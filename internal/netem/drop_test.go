@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-func TestWrapWriteLoss_zero(t *testing.T) {
+func TestWrapWriteDrop_zero(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
 
-	w := WrapWriteLoss(c1, DropLoss{Percent: 0})
+	w := WrapWriteDrop(c1, DropLoss{Percent: 0})
 	go func() { _, _ = w.Write([]byte("x")) }()
 
 	_ = c2.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
@@ -25,12 +25,12 @@ func TestWrapWriteLoss_zero(t *testing.T) {
 	}
 }
 
-func TestWrapWriteLoss_full(t *testing.T) {
+func TestWrapWriteDrop_full(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()
 	defer c2.Close()
 
-	w := WrapWriteLoss(c1, DropLoss{Percent: 100})
+	w := WrapWriteDrop(c1, DropLoss{Percent: 100})
 	writeErrCh := make(chan error, 1)
 	go func() {
 		_, err := w.Write([]byte("x"))
