@@ -15,7 +15,7 @@ speed: "30-60"
 interval: "5"
 latency: "100ms"
 jitter: "50ms"
-loss: 2.5
+drop: 2.5
 `)
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ loss: 2.5
 	if p.Jitter == nil || *p.Jitter != 50*time.Millisecond {
 		t.Fatalf("jitter=%v", p.Jitter)
 	}
-	if p.Loss == nil || *p.Loss != 2.5 {
-		t.Fatalf("loss=%v", p.Loss)
+	if p.Drop == nil || *p.Drop != 2.5 {
+		t.Fatalf("drop=%v", p.Drop)
 	}
 }

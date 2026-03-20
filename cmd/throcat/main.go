@@ -30,11 +30,11 @@ func runRelay(args []string) {
 	upstream := fs.StringP("upstream", "u", "", "Upstream address")
 	speed := fs.StringP("speed", "s", "", "Speed in KB/s: fixed (e.g. 50), range (e.g. 30-60), or 0 / no-limit for plain relay")
 	interval := fs.StringP("interval", "i", "", "When speed is range: seconds between rate changes (e.g. 5 or 3-7); omit to change rate often so speed varies constantly")
-	profilePath := fs.StringP("profile", "", "", "Path to network profile YAML (CLI flags override profile values)")
+	profilePath := fs.StringP("profile", "p", "", "Path to network profile YAML (CLI flags override profile values)")
 	quiet := fs.BoolP("quiet", "q", false, "Do not log listen address")
 	verbose := fs.BoolP("verbose", "v", false, "Log each connection open and close")
 	timeout := fs.DurationP("timeout", "t", 0, "Idle connection timeout (e.g. 30s, 5m); 0 = no timeout")
-	loss := fs.Float64P("loss", "p", 0, "Loss percentage of forwarded bytes (0-100); 0 disables")
+	drop := fs.Float64P("drop", "d", 0, "Drop percentage of forwarded bytes (0-100); 0 disables")
 	latency := fs.DurationP("latency", "L", 0, "Base one-way latency (e.g. 100ms); 0 disables")
 	jitter := fs.DurationP("jitter", "J", 0, "Additional random latency up to (e.g. 50ms); 0 disables")
 	jsonLog := fs.BoolP("json", "j", false, "Log in JSON format for scripting/monitoring")
@@ -68,8 +68,8 @@ func runRelay(args []string) {
 		if !fs.Lookup("jitter").Changed && p.Jitter != nil {
 			*jitter = *p.Jitter
 		}
-		if !fs.Lookup("loss").Changed && p.Loss != nil {
-			*loss = *p.Loss
+		if !fs.Lookup("drop").Changed && p.Drop != nil {
+			*drop = *p.Drop
 		}
 	}
 
@@ -83,8 +83,8 @@ func runRelay(args []string) {
 		fs.Usage()
 		os.Exit(1)
 	}
-	if *loss < 0 || *loss > 100 {
-		fmt.Fprintln(os.Stderr, "loss: must be between 0 and 100")
+	if *drop < 0 || *drop > 100 {
+		fmt.Fprintln(os.Stderr, "drop: must be between 0 and 100")
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -118,7 +118,7 @@ func runRelay(args []string) {
 		SpeedBytes:  speedCfg.bytesPerSec,
 		Verbose:     *verbose,
 		IdleTimeout: *timeout,
-		LossPercent: *loss,
+		DropPercent: *drop,
 		Latency: netem.Latency{
 			Enabled: *latency > 0 || *jitter > 0,
 			Base:    *latency,

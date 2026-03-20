@@ -28,11 +28,11 @@ All of `-l`/`--listen`, `-u`/`--upstream`, and `-s`/`--speed` are required. Ther
 | `--upstream` | `-u` | Upstream address to forward to (e.g. `127.0.0.1:1393`) |
 | `--speed` | `-s` | Speed in KB/s: fixed (e.g. `50`), range (e.g. `30-60`), or `0` / `no-limit` for plain relay |
 | `--interval` | `-i` | When speed is a range: seconds between rate changes (e.g. `5` or `3-7`). Omit to change rate often so speed varies constantly. |
-| `--profile` |  | Path to network profile YAML (CLI flags override profile values) |
+| `--profile` | `-p` | Path to network profile YAML (CLI flags override profile values) |
 | `--quiet` | `-q` | Do not log listen address |
 | `--verbose` | `-v` | Log each connection open and close |
 | `--timeout` | `-t` | Idle connection timeout (e.g. `30s`, `5m`); 0 = no timeout |
-| `--loss` | `-p` | Loss percentage of forwarded bytes (0-100); 0 disables |
+| `--drop` | `-d` | Drop percentage of forwarded bytes (0-100); 0 disables |
 | `--latency` | `-L` | Base one-way latency (e.g. `100ms`); 0 disables |
 | `--jitter` | `-J` | Additional random latency up to (e.g. `50ms`); 0 disables |
 | `--version` | `-V` | Print version and exit |
@@ -72,10 +72,10 @@ Fixed rate with latency and jitter:
 ./throcat -l 127.0.0.1:10001 -u 127.0.0.1:1393 -s 50 -L 100ms -J 50ms
 ```
 
-Fixed rate with loss, latency, and jitter:
+Fixed rate with drop, latency, and jitter:
 
 ```bash
-./throcat -l 127.0.0.1:10001 -u 127.0.0.1:1393 -s 50 -p 2.5 -L 100ms -J 50ms
+./throcat -l 127.0.0.1:10001 -u 127.0.0.1:1393 -s 50 -d 2.5 -L 100ms -J 50ms
 ```
 
 Run with a YAML profile:
@@ -85,13 +85,13 @@ listen: "127.0.0.1:10001"
 upstream: "127.0.0.1:1393"
 speed: "30-60"
 interval: "5"
-loss: 2.5
+drop: 2.5
 latency: "100ms"
 jitter: "50ms"
 ```
 
 ```bash
-./throcat --profile ./profile.yaml
+./throcat -p ./profile.yaml
 ```
 
 ### Benchmarking (e.g. iperf through throcat)

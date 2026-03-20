@@ -24,7 +24,7 @@ func Load(path string) (Profile, error) {
 	prof.Upstream = raw.Upstream
 	prof.Speed = raw.Speed
 	prof.Interval = raw.Interval
-	prof.Loss = raw.Loss
+	prof.Drop = raw.Drop
 
 	if raw.Latency != nil {
 		d, err := time.ParseDuration(*raw.Latency)

@@ -17,7 +17,7 @@ type RelayConfig struct {
 	Verbose     bool
 	IdleTimeout time.Duration
 	Latency     netem.Latency
-	LossPercent float64
+	DropPercent float64
 	Log         logx.Logger
 }
 
@@ -64,9 +64,9 @@ func handleRelayConn(client net.Conn, cfg RelayConfig) {
 		client = &deadlineConn{Conn: client, timeout: cfg.IdleTimeout}
 		remote = &deadlineConn{Conn: remote, timeout: cfg.IdleTimeout}
 	}
-	if cfg.LossPercent > 0 {
-		client = netem.WrapWriteLoss(client, netem.DropLoss{Percent: cfg.LossPercent})
-		remote = netem.WrapWriteLoss(remote, netem.DropLoss{Percent: cfg.LossPercent})
+	if cfg.DropPercent > 0 {
+		client = netem.WrapWriteLoss(client, netem.DropLoss{Percent: cfg.DropPercent})
+		remote = netem.WrapWriteLoss(remote, netem.DropLoss{Percent: cfg.DropPercent})
 	}
 	if cfg.Latency.Enabled {
 		delay := netem.Delay{Base: cfg.Latency.Base, Jitter: cfg.Latency.Jitter}

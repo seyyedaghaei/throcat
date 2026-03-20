@@ -9,7 +9,7 @@ type RawProfile struct {
 	Interval *string  `yaml:"interval" json:"interval"`
 	Latency  *string  `yaml:"latency" json:"latency"`
 	Jitter   *string  `yaml:"jitter" json:"jitter"`
-	Loss     *float64 `yaml:"loss" json:"loss"`
+	Drop *float64 `yaml:"drop" json:"drop"`
 }
 
 type Profile struct {
@@ -19,5 +19,5 @@ type Profile struct {
 	Interval *string
 	Latency  *time.Duration
 	Jitter   *time.Duration
-	Loss     *float64
+	Drop     *float64
 }
