@@ -8,8 +8,8 @@ import (
 
 func TestWrapWriteDrop_zero(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	w := WrapWriteDrop(c1, DropLoss{Percent: 0})
 	go func() { _, _ = w.Write([]byte("x")) }()
@@ -27,8 +27,8 @@ func TestWrapWriteDrop_zero(t *testing.T) {
 
 func TestWrapWriteDrop_full(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	w := WrapWriteDrop(c1, DropLoss{Percent: 100})
 	writeErrCh := make(chan error, 1)

@@ -8,8 +8,8 @@ import (
 
 func TestWrapWriteDelay(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	d := Delay{Base: 30 * time.Millisecond, Jitter: 0}
 	w := WrapWriteDelay(c1, d)
@@ -25,7 +25,7 @@ func TestWrapWriteDelay(t *testing.T) {
 	if _, err := c2.Read(buf); err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	_ = <-writeErr
+	<-writeErr
 
 	elapsed := time.Since(start)
 	if elapsed < 20*time.Millisecond {
